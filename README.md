@@ -1,6 +1,6 @@
 # PMS Car Rental Customer Mobile App
 
-A native-style Ionic + Angular customer frontend recreated from the supplied PMS website and assets. It uses standalone components, strict TypeScript, reactive forms, lazy routes, Ionic navigation, signals, and a replaceable service layer. No production backend, database, payment gateway, or WebView is connected.
+WALA PANG BACKENDDDD. MOCK DATAS PA LANG PO.
 
 ## Included experience
 
