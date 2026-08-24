@@ -1,0 +1,10 @@
+/node_modules
+/.angular
+/www
+/dist
+/ios
+/.idea
+/.vscode
+/coverage
+*.log
+.DS_Store

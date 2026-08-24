@@ -1,0 +1,126 @@
+import { CommonModule } from '@angular/common';
+import { Component, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import {
+  IonBackButton,
+  IonButton,
+  IonButtons,
+  IonCheckbox,
+  IonContent,
+  IonHeader,
+  IonInput,
+  IonText,
+  IonTitle,
+  IonToolbar,
+  IonToast,
+} from '@ionic/angular/standalone';
+import { AuthService, MediaService } from '../../models/service.interfaces';
+import { PasswordInputComponent } from '../../shared/password-input.component';
+import { passwordMatchValidator } from '../../utils/app.utils';
+@Component({
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink,
+    IonHeader,
+    IonToolbar,
+    IonButtons,
+    IonBackButton,
+    IonTitle,
+    IonContent,
+    IonInput,
+    IonButton,
+    IonCheckbox,
+    IonText,
+    IonToast,
+    PasswordInputComponent,
+  ],
+  template: `<ion-header class="ion-no-border"
+      ><ion-toolbar
+        ><ion-buttons slot="start"><ion-back-button defaultHref="/auth/login" /></ion-buttons
+        ><ion-title>Create account</ion-title></ion-toolbar
+      ></ion-header
+    ><ion-content
+      ><div class="auth-shell">
+        <h1>Let’s get you moving</h1>
+        <p>Create a safe mock account for development.</p>
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <ion-input
+            label="Full name"
+            labelPlacement="stacked"
+            autocomplete="name"
+            formControlName="fullName"
+          /><ion-text color="danger" *ngIf="bad('fullName')">Full name is required.</ion-text
+          ><ion-input
+            label="Email"
+            labelPlacement="stacked"
+            type="email"
+            autocomplete="email"
+            formControlName="email"
+          /><ion-text color="danger" *ngIf="bad('email')">Enter a valid email.</ion-text
+          ><app-password-input label="Password" formControlName="password" /><app-password-input
+            label="Confirm password"
+            formControlName="confirmPassword"
+          /><ion-text color="danger" *ngIf="form.touched && form.hasError('passwordMismatch')"
+            >Passwords must match.</ion-text
+          ><button type="button" class="image-picker" (click)="pickLicense()">
+            <span>{{ licenseName() || 'Optional driver’s-license image' }}</span
+            ><strong>{{ licenseName() ? 'Change' : 'Choose JPG or PNG' }}</strong></button
+          ><small>Maximum 3 MB. The mock app stores only the file name.</small
+          ><ion-checkbox formControlName="privacyConsent"
+            >I agree to the <a routerLink="/more/privacy">Privacy Policy</a>.</ion-checkbox
+          ><ion-text color="danger" *ngIf="bad('privacyConsent')">Privacy consent is required.</ion-text
+          ><ion-button expand="block" size="large" type="submit" [disabled]="form.invalid || busy()"
+            >Create account</ion-button
+          >
+        </form>
+        <p class="auth-switch">Already registered? <a routerLink="/auth/login">Sign in</a></p>
+      </div>
+      <ion-toast [isOpen]="!!error()" [message]="error()" color="danger" [duration]="2500"
+    /></ion-content>`,
+})
+export class RegisterPage {
+  readonly busy = signal(false);
+  readonly error = signal('');
+  readonly licenseName = signal('');
+  readonly form = this.fb.nonNullable.group(
+    {
+      fullName: ['', Validators.required],
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+      confirmPassword: ['', Validators.required],
+      privacyConsent: [false, Validators.requiredTrue],
+    },
+    { validators: passwordMatchValidator },
+  );
+  constructor(
+    private readonly fb: FormBuilder,
+    private readonly auth: AuthService,
+    private readonly media: MediaService,
+    private readonly router: Router,
+  ) {}
+  bad(key: 'fullName' | 'email' | 'privacyConsent'): boolean {
+    const c = this.form.controls[key];
+    return c.touched && c.invalid;
+  }
+  pickLicense(): void {
+    this.media.pickImage('license').subscribe((v) => this.licenseName.set(v?.name || ''));
+  }
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    this.busy.set(true);
+    const { confirmPassword, ...value } = this.form.getRawValue();
+    this.auth.register({ ...value, licenseFileName: this.licenseName() || undefined }).subscribe({
+      next: () => void this.router.navigateByUrl('/tabs/home', { replaceUrl: true }),
+      error: (e) => {
+        this.error.set(e instanceof Error ? e.message : 'Registration failed.');
+        this.busy.set(false);
+      },
+    });
+  }
+}
