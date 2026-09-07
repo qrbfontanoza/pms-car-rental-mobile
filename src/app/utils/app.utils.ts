@@ -8,8 +8,10 @@ export const isoToday = (): string => {
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 10);
 };
-export const rentalDays = (pickup: string, returns: string): number =>
-  Math.max(0, Math.floor((Date.parse(returns) - Date.parse(pickup)) / 86400000) + 1);
+export const rentalDays = (pickup: string, returns: string): number => {
+  const difference = Math.floor((Date.parse(returns) - Date.parse(pickup)) / 86400000);
+  return difference < 0 ? 0 : Math.max(1, difference);
+};
 export const passwordMatchValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null =>
   control.get('password')?.value === control.get('confirmPassword')?.value
     ? null

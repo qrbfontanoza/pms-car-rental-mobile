@@ -127,8 +127,8 @@ type Page = 'faq' | 'about' | 'privacy' | 'support';
         </p>
         <h2>6. Security</h2>
         <p>
-          The production service must use access controls, encrypted transport, secure password hashing,
-          auditing, and a protected backend API. This preview uses only safe local mock state.
+          The service uses access controls, encrypted transport, secure password hashing, auditing, and a
+          protected backend API.
         </p>
         <h2>7. Your rights</h2>
         <p>
@@ -160,22 +160,29 @@ type Page = 'faq' | 'about' | 'privacy' | 'support';
             labelPlacement="stacked"
             rows="6"
             formControlName="message"
-          /><ion-button expand="block" size="large" type="submit" [disabled]="form.invalid"
-            >Send message</ion-button
-          >
+          /><ion-button expand="block" size="large" type="submit" [disabled]="form.invalid || sending()">{{
+            sending() ? 'Sending…' : 'Send message'
+          }}</ion-button>
         </form>
       </main>
       <ion-toast
         [isOpen]="sent()"
-        message="Message sent to mock support."
+        message="Message sent to PMS support."
         [duration]="2400"
-        (didDismiss)="sent.set(false)"
+        (didDismiss)="sent.set(false)" /><ion-toast
+        [isOpen]="!!error()"
+        [message]="error()"
+        color="danger"
+        [duration]="2600"
+        (didDismiss)="error.set('')"
     /></ion-content>`,
 })
 export class MorePage implements OnInit {
   page: Page = 'faq';
   query = '';
   readonly sent = signal(false);
+  readonly sending = signal(false);
+  readonly error = signal('');
   readonly faqs = FAQS;
   readonly form = this.fb.nonNullable.group({
     name: ['', Validators.required],
@@ -204,11 +211,20 @@ export class MorePage implements OnInit {
     return this.faqs.filter((f) => `${f.q} ${f.a}`.toLowerCase().includes(q));
   }
   send(): void {
-    if (this.form.invalid) return;
-    this.support.send(this.form.getRawValue()).subscribe(() => {
-      this.sent.set(true);
-      this.form.controls.subject.reset();
-      this.form.controls.message.reset();
+    if (this.form.invalid || this.sending()) return;
+    this.sending.set(true);
+    this.error.set('');
+    this.support.send(this.form.getRawValue()).subscribe({
+      next: () => {
+        this.sent.set(true);
+        this.form.controls.subject.reset();
+        this.form.controls.message.reset();
+      },
+      error: (error: unknown) => {
+        this.error.set(error instanceof Error ? error.message : 'Could not send your message.');
+        this.sending.set(false);
+      },
+      complete: () => this.sending.set(false),
     });
   }
 }

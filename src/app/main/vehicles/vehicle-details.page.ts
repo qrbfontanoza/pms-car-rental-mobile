@@ -9,7 +9,6 @@ import {
   IonFooter,
   IonHeader,
   IonIcon,
-  IonSkeletonText,
   IonTitle,
   IonToolbar,
 } from '@ionic/angular/standalone';
@@ -18,6 +17,9 @@ import { peopleOutline, speedometerOutline, waterOutline, shieldCheckmarkOutline
 import { Vehicle } from '../../models/domain.models';
 import { VehicleService } from '../../models/service.interfaces';
 import { peso } from '../../utils/app.utils';
+import { ImageFallbackDirective } from '../../shared/image-fallback.directive';
+import { EmptyStateComponent } from '../../shared/ui.components';
+import { ScreenSkeletonComponent } from '../../shared/screen-skeleton.component';
 @Component({
   standalone: true,
   imports: [
@@ -32,7 +34,9 @@ import { peso } from '../../utils/app.utils';
     IonFooter,
     IonButton,
     IonIcon,
-    IonSkeletonText,
+    ImageFallbackDirective,
+    EmptyStateComponent,
+    ScreenSkeletonComponent,
   ],
   template: `<ion-header class="ion-no-border"
       ><ion-toolbar
@@ -40,21 +44,21 @@ import { peso } from '../../utils/app.utils';
         ><ion-title>Vehicle details</ion-title></ion-toolbar
       ></ion-header
     ><ion-content
-      ><div *ngIf="loading()" class="page-shell">
-        <ion-skeleton-text animated style="height:280px" /><ion-skeleton-text
-          animated
-          style="height:32px;width:70%"
-        />
-      </div>
-      <div *ngIf="error()" class="state-card">
-        <h2>Couldn’t load this vehicle</h2>
-        <p>{{ error() }}</p>
-        <ion-button routerLink="/tabs/vehicles">Back to vehicles</ion-button>
-      </div>
+      ><app-screen-skeleton *ngIf="loading()" variant="details" />
+      <app-empty-state
+        *ngIf="error()"
+        icon="alert-circle-outline"
+        title="Couldn’t load this vehicle"
+        [message]="error()"
+      >
+        <ion-button fill="outline" (click)="load()">Try again</ion-button>
+        <ion-button fill="clear" routerLink="/tabs/vehicles">Back to vehicles</ion-button>
+      </app-empty-state>
       <article *ngIf="vehicle() as v" class="details">
         <div class="detail-image">
-          <img [src]="v.image" [alt]="v.name" /><span [class.unavailable]="!v.availableUnits"
-            >{{ v.availableUnits }} unit{{ v.availableUnits === 1 ? '' : 's' }} available</span
+          <img appImageFallback [src]="v.image" [alt]="v.name" width="1200" height="675" /><span
+            [class.unavailable]="!v.availableUnits"
+            >{{ availability(v) }}</span
           >
         </div>
         <div class="detail-body">
@@ -79,7 +83,7 @@ import { peso } from '../../utils/app.utils';
             </div>
           </div>
           <h2>About this ride</h2>
-          <p>{{ v.description }}</p>
+          <p>{{ v.description || 'More information about this vehicle will be available soon.' }}</p>
           <div class="assurance">
             <ion-icon name="shield-checkmark-outline" />
             <div>
@@ -91,7 +95,8 @@ import { peso } from '../../utils/app.utils';
       </article></ion-content
     ><ion-footer *ngIf="vehicle() as v" class="sticky-action"
       ><div>
-        <span>From</span><strong>{{ money(v.dailyRate) }}/day</strong>
+        <span>{{ availability(v) }}</span
+        ><strong>{{ money(v.dailyRate) }}/day</strong>
       </div>
       <ion-button size="large" [disabled]="!v.availableUnits" [routerLink]="['/reserve', v.id]">{{
         v.availableUnits ? 'Reserve Now' : 'Unavailable'
@@ -110,6 +115,11 @@ export class VehicleDetailsPage implements OnInit {
     addIcons({ peopleOutline, speedometerOutline, waterOutline, shieldCheckmarkOutline });
   }
   ngOnInit(): void {
+    this.load();
+  }
+  load(): void {
+    this.loading.set(true);
+    this.error.set('');
     this.service.getById(this.route.snapshot.paramMap.get('id') || '').subscribe({
       next: (v) => {
         this.vehicle.set(v);
@@ -120,5 +130,10 @@ export class VehicleDetailsPage implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+  availability(vehicle: Vehicle): string {
+    if (vehicle.availableUnits === 0) return 'Unavailable';
+    if (vehicle.availableUnits === 1) return 'Only 1 left';
+    return 'Available';
   }
 }

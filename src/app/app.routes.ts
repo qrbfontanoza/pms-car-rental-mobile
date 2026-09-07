@@ -2,62 +2,62 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/auth.guard';
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'splash' },
-  { path: 'splash', loadComponent: () => import('./features/splash/splash.page').then((m) => m.SplashPage) },
+  { path: 'splash', loadComponent: () => import('./main/splash/splash.page').then((m) => m.SplashPage) },
   {
     path: 'onboarding',
-    loadComponent: () => import('./features/splash/onboarding.page').then((m) => m.OnboardingPage),
+    loadComponent: () => import('./main/splash/onboarding.page').then((m) => m.OnboardingPage),
   },
-  { path: 'auth', loadChildren: () => import('./features/auth/auth.routes').then((m) => m.AUTH_ROUTES) },
+  { path: 'auth', loadChildren: () => import('./main/auth/auth.routes').then((m) => m.AUTH_ROUTES) },
   {
     path: 'tabs',
-    loadComponent: () => import('./features/tabs/tabs.page').then((m) => m.TabsPage),
+    loadComponent: () => import('./main/tabs/tabs.page').then((m) => m.TabsPage),
     children: [
-      { path: 'home', loadComponent: () => import('./features/home/home.page').then((m) => m.HomePage) },
+      { path: 'home', loadComponent: () => import('./main/home/home.page').then((m) => m.HomePage) },
       {
         path: 'vehicles',
-        loadComponent: () => import('./features/vehicles/vehicles.page').then((m) => m.VehiclesPage),
+        loadComponent: () => import('./main/vehicles/vehicles.page').then((m) => m.VehiclesPage),
       },
       {
         path: 'bookings',
         canActivate: [authGuard],
-        loadComponent: () => import('./features/bookings/bookings.page').then((m) => m.BookingsPage),
+        loadComponent: () => import('./main/bookings/bookings.page').then((m) => m.BookingsPage),
       },
       {
         path: 'profile',
-        loadComponent: () => import('./features/profile/profile.page').then((m) => m.ProfilePage),
+        loadComponent: () => import('./main/profile/profile.page').then((m) => m.ProfilePage),
       },
       { path: '', pathMatch: 'full', redirectTo: 'home' },
     ],
   },
   {
     path: 'vehicles/:id',
-    loadComponent: () => import('./features/vehicles/vehicle-details.page').then((m) => m.VehicleDetailsPage),
+    loadComponent: () => import('./main/vehicles/vehicle-details.page').then((m) => m.VehicleDetailsPage),
   },
   {
     path: 'reserve/:id',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/booking-flow/reservation.page').then((m) => m.ReservationPage),
+    loadComponent: () => import('./main/booking-flow/reservation.page').then((m) => m.ReservationPage),
   },
   {
     path: 'booking/:id',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/bookings/booking-details.page').then((m) => m.BookingDetailsPage),
+    loadComponent: () => import('./main/bookings/booking-details.page').then((m) => m.BookingDetailsPage),
   },
   {
     path: 'receipt/:id',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/bookings/receipt.page').then((m) => m.ReceiptPage),
+    loadComponent: () => import('./main/bookings/receipt.page').then((m) => m.ReceiptPage),
   },
   {
     path: 'profile/edit',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/profile/edit-profile.page').then((m) => m.EditProfilePage),
+    loadComponent: () => import('./main/profile/edit-profile.page').then((m) => m.EditProfilePage),
   },
   {
     path: 'profile/change-password',
     canActivate: [authGuard],
-    loadComponent: () => import('./features/profile/change-password.page').then((m) => m.ChangePasswordPage),
+    loadComponent: () => import('./main/profile/change-password.page').then((m) => m.ChangePasswordPage),
   },
-  { path: 'more/:page', loadComponent: () => import('./features/more/more.page').then((m) => m.MorePage) },
+  { path: 'more/:page', loadComponent: () => import('./main/more/more.page').then((m) => m.MorePage) },
   { path: '**', redirectTo: 'tabs/home' },
 ];

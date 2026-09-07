@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { finalize } from 'rxjs';
 import {
   IonBackButton,
   IonButton,
@@ -16,7 +17,13 @@ import { addIcons } from 'ionicons';
 import { downloadOutline, shareOutline } from 'ionicons/icons';
 import { Receipt } from '../../models/domain.models';
 import { ReceiptService } from '../../models/service.interfaces';
-import { PriceBreakdownComponent, StatusBadgeComponent } from '../../shared/ui.components';
+import {
+  EmptyStateComponent,
+  PriceBreakdownComponent,
+  StatusBadgeComponent,
+} from '../../shared/ui.components';
+import { ImageFallbackDirective } from '../../shared/image-fallback.directive';
+import { ScreenSkeletonComponent } from '../../shared/screen-skeleton.component';
 @Component({
   standalone: true,
   imports: [
@@ -32,6 +39,9 @@ import { PriceBreakdownComponent, StatusBadgeComponent } from '../../shared/ui.c
     IonToast,
     StatusBadgeComponent,
     PriceBreakdownComponent,
+    ImageFallbackDirective,
+    EmptyStateComponent,
+    ScreenSkeletonComponent,
   ],
   template: `<ion-header class="ion-no-border"
       ><ion-toolbar
@@ -39,7 +49,16 @@ import { PriceBreakdownComponent, StatusBadgeComponent } from '../../shared/ui.c
         ><ion-title>Receipt</ion-title></ion-toolbar
       ></ion-header
     ><ion-content
-      ><article class="receipt page-shell" *ngIf="receipt() as r">
+      ><app-screen-skeleton *ngIf="loading()" variant="receipt" />
+      <app-empty-state
+        *ngIf="error()"
+        icon="alert-circle-outline"
+        title="Receipt unavailable"
+        [message]="error()"
+      >
+        <ion-button fill="outline" (click)="load()">Try again</ion-button>
+      </app-empty-state>
+      <article class="receipt page-shell" *ngIf="receipt() as r">
         <header>
           <img src="assets/logo.png" alt="PMS Car Rental" />
           <div>
@@ -61,7 +80,7 @@ import { PriceBreakdownComponent, StatusBadgeComponent } from '../../shared/ui.c
         <section>
           <h2>Vehicle</h2>
           <div class="receipt-vehicle">
-            <img [src]="r.vehicle.image" [alt]="r.vehicle.name" />
+            <img appImageFallback [src]="r.vehicle.image" [alt]="r.vehicle.name" width="400" height="225" />
             <div>
               <strong>{{ r.vehicle.name }}</strong>
               <p>{{ r.vehicle.category }} · {{ r.vehicle.transmission }}</p>
@@ -79,17 +98,17 @@ import { PriceBreakdownComponent, StatusBadgeComponent } from '../../shared/ui.c
             <span>Payment status</span><strong>{{ r.booking.paymentStatus.replaceAll('_', ' ') }}</strong>
           </div>
         </section>
-        <app-price-breakdown [preview]="r.booking.preview" />
+        <app-price-breakdown [preview]="r.booking.preview" [paymentStatus]="r.booking.paymentStatus" />
         <footer>
           <p>Issued {{ r.issuedAt | date: 'medium' }}</p>
           <p>Thank you for choosing PMS Car Rental.</p>
         </footer>
       </article>
       <div class="receipt-actions" *ngIf="receipt() as r">
-        <ion-button fill="outline" (click)="share(r)"
+        <ion-button fill="outline" (click)="share(r)" [disabled]="!!action()"
           ><ion-icon slot="start" name="share-outline" />Share</ion-button
-        ><ion-button (click)="save(r)"
-          ><ion-icon slot="start" name="download-outline" />Save / Print</ion-button
+        ><ion-button (click)="save(r)" [disabled]="!!action()"
+          ><ion-icon slot="start" name="download-outline" />Save receipt</ion-button
         >
       </div>
       <ion-toast [isOpen]="!!message()" [message]="message()" [duration]="2200"
@@ -98,6 +117,9 @@ import { PriceBreakdownComponent, StatusBadgeComponent } from '../../shared/ui.c
 export class ReceiptPage implements OnInit {
   readonly receipt = signal<Receipt | null>(null);
   readonly message = signal('');
+  readonly loading = signal(true);
+  readonly error = signal('');
+  readonly action = signal<'share' | 'save' | null>(null);
   constructor(
     private readonly route: ActivatedRoute,
     private readonly service: ReceiptService,
@@ -105,14 +127,47 @@ export class ReceiptPage implements OnInit {
     addIcons({ downloadOutline, shareOutline });
   }
   ngOnInit(): void {
-    this.service.get(this.route.snapshot.paramMap.get('id') || '').subscribe((r) => this.receipt.set(r));
+    this.load();
+  }
+  load(): void {
+    this.loading.set(true);
+    this.error.set('');
+    this.service.get(this.route.snapshot.paramMap.get('id') || '').subscribe({
+      next: (receipt) => {
+        this.receipt.set(receipt);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.receipt.set(null);
+        this.error.set('Check your connection and try again.');
+        this.loading.set(false);
+      },
+    });
   }
   share(r: Receipt): void {
-    this.service.share(r).subscribe(() => this.message.set('Share is ready for Capacitor integration.'));
+    if (this.action()) return;
+    this.action.set('share');
+    this.service
+      .share(r)
+      .pipe(finalize(() => this.action.set(null)))
+      .subscribe({
+        next: () => this.message.set('Receipt shared.'),
+        error: (error: unknown) => this.message.set(this.actionError(error, 'Could not share the receipt.')),
+      });
   }
   save(r: Receipt): void {
+    if (this.action()) return;
+    this.action.set('save');
     this.service
       .save(r)
-      .subscribe(() => this.message.set('Save/Print is ready for Capacitor Filesystem integration.'));
+      .pipe(finalize(() => this.action.set(null)))
+      .subscribe({
+        next: (message) => this.message.set(message),
+        error: (error: unknown) => this.message.set(this.actionError(error, 'Could not save the receipt.')),
+      });
+  }
+
+  private actionError(error: unknown, fallback: string): string {
+    return error instanceof Error && error.message ? error.message : fallback;
   }
 }

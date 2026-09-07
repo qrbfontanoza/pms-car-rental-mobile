@@ -36,6 +36,7 @@ export class MockAuthService extends AuthService {
   private readonly key = 'pms.mock.session';
   private readonly subject: BehaviorSubject<User | null>;
   readonly user$: Observable<User | null>;
+  readonly ready$ = of(true);
   constructor(private readonly storage: StorageService) {
     super();
     this.subject = new BehaviorSubject(this.storage.get<User | null>(this.key, null));
@@ -43,6 +44,9 @@ export class MockAuthService extends AuthService {
   }
   get isAuthenticated(): boolean {
     return !!this.subject.value;
+  }
+  restore(): Observable<User | null> {
+    return lag(this.subject.value);
   }
   login(value: AuthCredentials): Observable<User> {
     if (value.password.length < 6)
@@ -157,8 +161,15 @@ export class MockBookingService extends BookingService {
     this.subject = new BehaviorSubject(this.storage.get(this.key, MOCK_BOOKINGS));
     this.bookings$ = this.subject.asObservable();
   }
+  clear(): void {
+    this.subject.next([]);
+  }
   list(): Observable<Booking[]> {
     return lag(this.subject.value);
+  }
+  getById(id: string): Observable<Booking> {
+    const booking = this.subject.value.find((item) => item.id === id);
+    return booking ? lag(booking) : throwError(() => new Error('Booking not found.'));
   }
   preview(
     draft: Pick<BookingDraft, 'vehicleId' | 'pickupDate' | 'returnDate' | 'voucherCode'>,
@@ -205,6 +216,7 @@ export class MockBookingService extends BookingService {
           preview,
           status: 'pending',
           paymentStatus: 'pay_at_pickup',
+          amountPaid: 0,
           createdAt: new Date().toISOString(),
         };
         this.update([booking, ...this.subject.value]);
@@ -297,16 +309,27 @@ export class MockReceiptService extends ReceiptService {
   share(_receipt: Receipt): Observable<void> {
     return lag(undefined);
   }
-  save(_receipt: Receipt): Observable<void> {
-    return lag(undefined);
+  save(_receipt: Receipt): Observable<string> {
+    return lag('Receipt downloaded.');
   }
 }
 @Injectable()
 export class MockMediaService extends MediaService {
-  pickImage(kind: 'profile' | 'license'): Observable<{ name: string; previewUrl: string } | null> {
+  pickImage(
+    kind: 'profile' | 'license',
+  ): Observable<{ name: string; previewUrl: string; file?: File } | null> {
     return lag({
       name: `mock-${kind}.jpg`,
-      previewUrl: kind === 'profile' ? 'assets/avatar.png' : 'assets/license-placeholder.svg',
+      previewUrl: kind === 'profile' ? 'assets/profile-placeholder.svg' : 'assets/license-placeholder.svg',
     });
+  }
+  uploadProfilePhoto(_file: File): Observable<CustomerProfile> {
+    return lag(MOCK_USER);
+  }
+  uploadProfileLicense(_file: File): Observable<CustomerProfile> {
+    return lag({ ...MOCK_USER, licenseStatus: 'pending' });
+  }
+  uploadLicense(_bookingId: string, _file: File): Observable<void> {
+    return lag(undefined);
   }
 }

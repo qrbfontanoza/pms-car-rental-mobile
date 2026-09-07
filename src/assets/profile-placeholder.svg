@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title description">
+  <title id="title">Default profile picture</title>
+  <desc id="description">A neutral customer silhouette in PMS Car Rental colors</desc>
+  <rect width="160" height="160" rx="80" fill="#E8F1FC"/>
+  <circle cx="80" cy="58" r="28" fill="#2159C7"/>
+  <path d="M30 138c4-31 24-49 50-49s46 18 50 49" fill="#0F2A4D"/>
+  <circle cx="80" cy="80" r="76" fill="none" stroke="#63A8FF" stroke-width="8"/>
+</svg>

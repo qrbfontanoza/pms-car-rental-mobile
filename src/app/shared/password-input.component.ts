@@ -15,7 +15,8 @@ import { eyeOffOutline, eyeOutline } from 'ionicons/icons';
       [type]="visible() ? 'text' : 'password'"
       [label]="label()"
       labelPlacement="stacked"
-      autocomplete="current-password"
+      [autocomplete]="autocomplete()"
+      [enterkeyhint]="enterKeyHint()"
       [value]="value"
       (ionInput)="change($any($event.target).value || '')"
       (ionBlur)="touch()"
@@ -30,6 +31,8 @@ import { eyeOffOutline, eyeOutline } from 'ionicons/icons';
 })
 export class PasswordInputComponent implements ControlValueAccessor {
   label = input('Password');
+  autocomplete = input<'current-password' | 'new-password'>('current-password');
+  enterKeyHint = input<'next' | 'done'>('done');
   visible = signal(false);
   value = '';
   private onChange: (v: string) => void = () => {};

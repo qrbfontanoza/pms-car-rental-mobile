@@ -10,9 +10,20 @@ import {
   IonSkeletonText,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { peopleOutline, speedometerOutline, waterOutline, carSportOutline } from 'ionicons/icons';
-import { BookingPricePreview, BookingStatus, Vehicle } from '../models/domain.models';
+import {
+  alertCircleOutline,
+  banOutline,
+  carSportOutline,
+  checkmarkCircleOutline,
+  hourglassOutline,
+  peopleOutline,
+  returnDownBackOutline,
+  speedometerOutline,
+  waterOutline,
+} from 'ionicons/icons';
+import { Booking, BookingPricePreview, BookingStatus, Vehicle } from '../models/domain.models';
 import { peso } from '../utils/app.utils';
+import { ImageFallbackDirective } from './image-fallback.directive';
 @Component({
   selector: 'app-section-heading',
   standalone: true,
@@ -26,13 +37,34 @@ export class SectionHeadingComponent {
 @Component({
   selector: 'app-status-badge',
   standalone: true,
-  imports: [IonBadge],
-  template: '<ion-badge [class]="status()">{{label}}</ion-badge>',
+  imports: [IonBadge, IonIcon],
+  template:
+    '<ion-badge [class]="status()" [attr.aria-label]="label"><ion-icon [name]="icon" aria-hidden="true" />{{label}}</ion-badge>',
 })
 export class StatusBadgeComponent {
   status = input.required<BookingStatus>();
-  get label() {
-    return this.status().replace('_', ' ');
+  private readonly labels: Record<BookingStatus, string> = {
+    pending: 'Awaiting confirmation',
+    confirmed: 'Confirmed',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
+    returned_early: 'Returned early',
+  };
+  private readonly icons: Record<BookingStatus, string> = {
+    pending: 'hourglass-outline',
+    confirmed: 'checkmark-circle-outline',
+    completed: 'checkmark-circle-outline',
+    cancelled: 'ban-outline',
+    returned_early: 'return-down-back-outline',
+  };
+  constructor() {
+    addIcons({ banOutline, checkmarkCircleOutline, hourglassOutline, returnDownBackOutline });
+  }
+  get label(): string {
+    return this.labels[this.status()];
+  }
+  get icon(): string {
+    return this.icons[this.status()];
   }
 }
 @Component({
@@ -51,26 +83,36 @@ export class StatusBadgeComponent {
     <div class="total">
       <span>Total</span><strong>{{ money(preview().total) }}</strong>
     </div>
-    <small>Payment: Pay at pickup</small>
+    <small>Payment: {{ paymentLabel }}</small>
   </div>`,
   imports: [CommonModule],
 })
 export class PriceBreakdownComponent {
   preview = input.required<BookingPricePreview>();
+  paymentStatus = input<Booking['paymentStatus']>('pay_at_pickup');
   money = peso;
+  get paymentLabel(): string {
+    const labels: Record<Booking['paymentStatus'], string> = {
+      pay_at_pickup: 'Pay at pickup',
+      paid: 'Paid',
+      refunded: 'Refunded',
+    };
+    return labels[this.paymentStatus()];
+  }
 }
 @Component({
   selector: 'app-empty-state',
   standalone: true,
   imports: [IonIcon],
   template:
-    '<div class="state-card"><ion-icon name="car-sport-outline"/><h3>{{title()}}</h3><p>{{message()}}</p><ng-content /></div>',
+    '<div class="state-card" role="status" aria-live="polite"><ion-icon [name]="icon()" aria-hidden="true"/><h2>{{title()}}</h2><p>{{message()}}</p><div class="state-actions"><ng-content /></div></div>',
 })
 export class EmptyStateComponent {
   title = input.required<string>();
   message = input.required<string>();
+  icon = input('car-sport-outline');
   constructor() {
-    addIcons({ carSportOutline });
+    addIcons({ alertCircleOutline, carSportOutline });
   }
 }
 @Component({
@@ -84,13 +126,23 @@ export class LoadingGridComponent {}
 @Component({
   selector: 'app-vehicle-card',
   standalone: true,
-  imports: [RouterLink, IonCard, IonCardContent, IonButton, IonIcon],
+  imports: [RouterLink, IonCard, IonCardContent, IonButton, IonIcon, ImageFallbackDirective],
   template: `<ion-card class="vehicle-card"
-    ><a [routerLink]="['/vehicles', vehicle().id]" [attr.aria-label]="'View ' + vehicle().name"
+    ><a
+      [routerLink]="['/vehicles', vehicle().id]"
+      [attr.aria-label]="'View ' + vehicle().name + '. ' + availability"
       ><div class="vehicle-image">
-        <img [src]="vehicle().image" [alt]="vehicle().name" loading="lazy" /><span
-          [class.unavailable]="!vehicle().availableUnits"
-          >{{ vehicle().availableUnits ? vehicle().availableUnits + ' available' : 'Unavailable' }}</span
+        <img
+          appImageFallback
+          [src]="vehicle().image"
+          [alt]="vehicle().name"
+          loading="lazy"
+          width="640"
+          height="360"
+        /><span [class.unavailable]="!vehicle().availableUnits"
+          ><ion-icon [name]="vehicle().availableUnits ? 'checkmark-circle-outline' : 'ban-outline'" />{{
+            availability
+          }}</span
         >
       </div></a
     ><ion-card-content
@@ -106,7 +158,12 @@ export class LoadingGridComponent {}
           <strong>{{ money(vehicle().dailyRate) }}</strong
           ><small>/day</small>
         </div>
-        <ion-button fill="clear" [routerLink]="['/vehicles', vehicle().id]">View</ion-button>
+        <ion-button
+          fill="clear"
+          [routerLink]="['/vehicles', vehicle().id]"
+          [attr.aria-label]="'View details for ' + vehicle().name"
+          >View details</ion-button
+        >
       </div></ion-card-content
     ></ion-card
   >`,
@@ -115,6 +172,12 @@ export class VehicleCardComponent {
   vehicle = input.required<Vehicle>();
   money = peso;
   constructor() {
-    addIcons({ peopleOutline, speedometerOutline, waterOutline });
+    addIcons({ banOutline, checkmarkCircleOutline, peopleOutline, speedometerOutline, waterOutline });
+  }
+  get availability(): string {
+    const count = this.vehicle().availableUnits;
+    if (count === 0) return 'Unavailable';
+    if (count === 1) return 'Only 1 left';
+    return 'Available';
   }
 }

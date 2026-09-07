@@ -34,10 +34,10 @@ describe('mock service layer', () => {
         voucherCode: 'BOOK50',
       }),
     );
-    expect(preview.rentalDays).toBe(2);
-    expect(preview.subtotal).toBe(4400);
-    expect(preview.discount).toBe(2200);
-    expect(preview.total).toBe(2200);
+    expect(preview.rentalDays).toBe(1);
+    expect(preview.subtotal).toBe(2200);
+    expect(preview.discount).toBe(1100);
+    expect(preview.total).toBe(1100);
   });
   it('creates, cancels, and returns bookings immediately', async () => {
     const bookings = new MockBookingService(storage, new MockVoucherService());
@@ -48,6 +48,7 @@ describe('mock service layer', () => {
         returnDate: '2099-10-01',
         contactNumber: '09175550188',
         renterAge: 25,
+        amountPaid: 2200,
       }),
     );
     expect(created.status).toBe('pending');
@@ -59,8 +60,19 @@ describe('mock service layer', () => {
         returnDate: '2099-11-02',
         contactNumber: '09175550188',
         renterAge: 25,
+        amountPaid: 7600,
       }),
     );
     expect((await firstValueFrom(bookings.returnEarly(second.id))).status).toBe('returned_early');
+  });
+  it('clears account-scoped booking state without deleting mock persistence', () => {
+    const bookings = new MockBookingService(storage, new MockVoucherService());
+    let visibleCount = -1;
+    bookings.bookings$.subscribe((items) => (visibleCount = items.length));
+
+    bookings.clear();
+
+    expect(visibleCount).toBe(0);
+    expect(localStorage.getItem('pms.mock.bookings')).toBeNull();
   });
 });

@@ -6,5 +6,6 @@
 /.idea
 /.vscode
 /coverage
+/.artifacts
 *.log
 .DS_Store

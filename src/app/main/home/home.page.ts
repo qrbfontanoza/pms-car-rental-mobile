@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -8,6 +8,8 @@ import {
   IonHeader,
   IonIcon,
   IonInput,
+  IonRefresher,
+  IonRefresherContent,
   IonSelect,
   IonSelectOption,
   IonTitle,
@@ -25,7 +27,12 @@ import {
 import { FAQS, TESTIMONIALS } from '../../data/mock-data';
 import { Vehicle, VehicleCategory } from '../../models/domain.models';
 import { VehicleService } from '../../models/service.interfaces';
-import { SectionHeadingComponent, VehicleCardComponent } from '../../shared/ui.components';
+import {
+  EmptyStateComponent,
+  SectionHeadingComponent,
+  VehicleCardComponent,
+} from '../../shared/ui.components';
+import { ScreenSkeletonComponent } from '../../shared/screen-skeleton.component';
 import { isoToday } from '../../utils/app.utils';
 @Component({
   standalone: true,
@@ -40,10 +47,14 @@ import { isoToday } from '../../utils/app.utils';
     IonButton,
     IonIcon,
     IonInput,
+    IonRefresher,
+    IonRefresherContent,
     IonSelect,
     IonSelectOption,
     SectionHeadingComponent,
     VehicleCardComponent,
+    EmptyStateComponent,
+    ScreenSkeletonComponent,
   ],
   template: `<ion-header class="ion-no-border"
       ><ion-toolbar
@@ -52,7 +63,8 @@ import { isoToday } from '../../utils/app.utils';
         ></ion-toolbar
       ></ion-header
     ><ion-content
-      ><section class="hero">
+      ><ion-refresher slot="fixed" (ionRefresh)="refresh($event)"><ion-refresher-content /></ion-refresher>
+      <section class="hero">
         <div class="hero-copy">
           <p class="eyebrow">PREMIUM CAR RENTALS</p>
           <h1>Find Your <span>Perfect Ride</span></h1>
@@ -81,7 +93,18 @@ import { isoToday } from '../../utils/app.utils';
         <app-section-heading eyebrow="FEATURED VEHICLES" title="Popular rides"
           ><ion-button fill="clear" routerLink="/tabs/vehicles">View all</ion-button></app-section-heading
         >
-        <div class="vehicle-grid"><app-vehicle-card *ngFor="let v of featured()" [vehicle]="v" /></div>
+        <app-screen-skeleton *ngIf="featuredLoading()" variant="home" />
+        <app-empty-state
+          *ngIf="!featuredLoading() && featuredError()"
+          icon="alert-circle-outline"
+          title="Featured vehicles unavailable"
+          message="Check your connection and try again."
+        >
+          <ion-button fill="outline" (click)="loadFeatured()">Retry</ion-button>
+        </app-empty-state>
+        <div class="vehicle-grid featured-rail" *ngIf="!featuredLoading() && !featuredError()">
+          <app-vehicle-card *ngFor="let v of featured()" [vehicle]="v" />
+        </div>
         <section class="how">
           <app-section-heading eyebrow="HOW IT WORKS" title="Better way to rent" />
           <div class="steps">
@@ -128,10 +151,12 @@ import { isoToday } from '../../utils/app.utils';
       </div></ion-content
     >`,
 })
-export class HomePage implements OnInit {
+export class HomePage {
   readonly today = isoToday();
   readonly categories: VehicleCategory[] = ['Sedan', 'SUV', 'Van', 'Minivan', 'Scooter', 'Pickup'];
   readonly featured = signal<Vehicle[]>([]);
+  readonly featuredLoading = signal(true);
+  readonly featuredError = signal(false);
   readonly testimonials = TESTIMONIALS;
   readonly faqs = FAQS.slice(0, 3);
   readonly steps = [
@@ -166,11 +191,31 @@ export class HomePage implements OnInit {
       shieldCheckmarkOutline,
     });
   }
-  ngOnInit(): void {
-    this.vehicles.list({}, 1, 14).subscribe((r) => this.featured.set(r.data.filter((v) => v.featured)));
+  ionViewWillEnter(): void {
+    this.loadFeatured();
   }
   search(): void {
     if (this.searchForm.invalid) return;
     void this.router.navigate(['/tabs/vehicles'], { queryParams: this.searchForm.getRawValue() });
+  }
+  refresh(event: CustomEvent): void {
+    this.loadFeatured(event);
+  }
+  loadFeatured(event?: CustomEvent): void {
+    this.featuredLoading.set(true);
+    this.featuredError.set(false);
+    this.vehicles.list({ sort: 'newest' }, 1, 14).subscribe({
+      next: (response) => {
+        const explicitlyFeatured = response.data.filter((vehicle) => vehicle.featured);
+        this.featured.set((explicitlyFeatured.length ? explicitlyFeatured : response.data).slice(0, 3));
+        this.featuredLoading.set(false);
+        void (event?.target as HTMLIonRefresherElement | undefined)?.complete();
+      },
+      error: () => {
+        this.featuredError.set(true);
+        this.featuredLoading.set(false);
+        void (event?.target as HTMLIonRefresherElement | undefined)?.complete();
+      },
+    });
   }
 }

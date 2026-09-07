@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { finalize, map, of, switchMap } from 'rxjs';
 import {
   IonBackButton,
   IonButton,
@@ -10,6 +11,7 @@ import {
   IonContent,
   IonHeader,
   IonInput,
+  IonSpinner,
   IonText,
   IonTitle,
   IonToolbar,
@@ -31,6 +33,7 @@ import { passwordMatchValidator } from '../../utils/app.utils';
     IonTitle,
     IonContent,
     IonInput,
+    IonSpinner,
     IonButton,
     IonCheckbox,
     IonText,
@@ -45,7 +48,7 @@ import { passwordMatchValidator } from '../../utils/app.utils';
     ><ion-content
       ><div class="auth-shell">
         <h1>Let’s get you moving</h1>
-        <p>Create a safe mock account for development.</p>
+        <p>Create your PMS Car Rental customer account.</p>
         <form [formGroup]="form" (ngSubmit)="submit()">
           <ion-input
             label="Full name"
@@ -60,31 +63,47 @@ import { passwordMatchValidator } from '../../utils/app.utils';
             autocomplete="email"
             formControlName="email"
           /><ion-text color="danger" *ngIf="bad('email')">Enter a valid email.</ion-text
-          ><app-password-input label="Password" formControlName="password" /><app-password-input
+          ><app-password-input
+            label="Password"
+            formControlName="password"
+            autocomplete="new-password"
+            enterKeyHint="next"
+          /><ion-text color="danger" *ngIf="form.controls.password.touched && form.controls.password.invalid"
+            >Password must be at least 6 characters.</ion-text
+          ><app-password-input
             label="Confirm password"
             formControlName="confirmPassword"
+            autocomplete="new-password"
           /><ion-text color="danger" *ngIf="form.touched && form.hasError('passwordMismatch')"
             >Passwords must match.</ion-text
           ><button type="button" class="image-picker" (click)="pickLicense()">
             <span>{{ licenseName() || 'Optional driver’s-license image' }}</span
             ><strong>{{ licenseName() ? 'Change' : 'Choose JPG or PNG' }}</strong></button
-          ><small>Maximum 3 MB. The mock app stores only the file name.</small
+          ><small>Maximum 3 MB. JPEG and PNG images only.</small
           ><ion-checkbox formControlName="privacyConsent"
             >I agree to the <a routerLink="/more/privacy">Privacy Policy</a>.</ion-checkbox
           ><ion-text color="danger" *ngIf="bad('privacyConsent')">Privacy consent is required.</ion-text
           ><ion-button expand="block" size="large" type="submit" [disabled]="form.invalid || busy()"
-            >Create account</ion-button
+            ><ion-spinner *ngIf="busy()" slot="start" name="crescent" />{{
+              busy() ? 'Creating account…' : 'Create account'
+            }}</ion-button
           >
         </form>
         <p class="auth-switch">Already registered? <a routerLink="/auth/login">Sign in</a></p>
       </div>
-      <ion-toast [isOpen]="!!error()" [message]="error()" color="danger" [duration]="2500"
+      <ion-toast
+        [isOpen]="!!error()"
+        [message]="error()"
+        color="danger"
+        [duration]="2500"
+        aria-live="assertive"
     /></ion-content>`,
 })
 export class RegisterPage {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly licenseName = signal('');
+  readonly licenseFile = signal<File | null>(null);
   readonly form = this.fb.nonNullable.group(
     {
       fullName: ['', Validators.required],
@@ -106,7 +125,14 @@ export class RegisterPage {
     return c.touched && c.invalid;
   }
   pickLicense(): void {
-    this.media.pickImage('license').subscribe((v) => this.licenseName.set(v?.name || ''));
+    this.media.pickImage('license').subscribe({
+      next: (value) => {
+        this.licenseName.set(value?.name || '');
+        this.licenseFile.set(value?.file ?? null);
+      },
+      error: (error: unknown) =>
+        this.error.set(error instanceof Error ? error.message : 'Could not select this image.'),
+    });
   }
   submit(): void {
     if (this.form.invalid) {
@@ -115,12 +141,20 @@ export class RegisterPage {
     }
     this.busy.set(true);
     const { confirmPassword, ...value } = this.form.getRawValue();
-    this.auth.register({ ...value, licenseFileName: this.licenseName() || undefined }).subscribe({
-      next: () => void this.router.navigateByUrl('/tabs/home', { replaceUrl: true }),
-      error: (e) => {
-        this.error.set(e instanceof Error ? e.message : 'Registration failed.');
-        this.busy.set(false);
-      },
-    });
+    this.auth
+      .register({ ...value, licenseFileName: this.licenseName() || undefined })
+      .pipe(
+        switchMap((user) => {
+          const file = this.licenseFile();
+          return file ? this.media.uploadProfileLicense(file).pipe(map(() => user)) : of(user);
+        }),
+        finalize(() => this.busy.set(false)),
+      )
+      .subscribe({
+        next: () => void this.router.navigateByUrl('/tabs/home', { replaceUrl: true }),
+        error: (e) => {
+          this.error.set(e instanceof Error ? e.message : 'Registration failed.');
+        },
+      });
   }
 }

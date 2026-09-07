@@ -6,7 +6,7 @@ export interface User {
   fullName: string;
   email: string;
   profileImage?: string;
-  licenseStatus: 'not_uploaded' | 'pending' | 'verified';
+  licenseStatus: 'not_uploaded' | 'pending' | 'verified' | 'rejected';
 }
 export interface Vehicle {
   id: string;
@@ -27,6 +27,8 @@ export interface Vehicle {
 export interface VehicleFilter {
   keyword: string;
   categories: VehicleCategory[];
+  pickupDate?: string;
+  returnDate?: string;
   minPrice?: number;
   maxPrice?: number;
   seats?: number;
@@ -66,6 +68,7 @@ export interface Booking {
   preview: BookingPricePreview;
   status: BookingStatus;
   paymentStatus: 'pay_at_pickup' | 'paid' | 'refunded';
+  amountPaid?: number;
   createdAt: string;
 }
 export interface Transaction {
@@ -79,6 +82,12 @@ export interface Receipt {
   booking: Booking;
   customer: User;
   vehicle: Vehicle;
+  transactionReference?: string;
+  amountPaid?: number;
+  change?: number;
+  outstandingBalance?: number;
+  paymentStatus?: Booking['paymentStatus'];
+  transactionDate?: string;
   issuedAt: string;
 }
 export interface SupportMessage {
@@ -110,6 +119,7 @@ export interface CustomerProfile extends User {
 export interface ApiResponse<T> {
   data: T;
   message?: string;
+  meta?: Record<string, unknown>;
 }
 export interface PaginationMeta {
   page: number;
@@ -138,6 +148,8 @@ export interface BookingDraft {
   returnDate: string;
   contactNumber: string;
   renterAge: number;
+  /** @deprecated Reservations are pay-at-pickup; production ignores this field. */
+  amountPaid?: number;
   voucherCode?: string;
   licenseFileName?: string;
 }

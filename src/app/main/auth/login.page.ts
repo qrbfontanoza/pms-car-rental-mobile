@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { finalize } from 'rxjs';
 import {
   IonBackButton,
   IonButton,
@@ -9,6 +10,7 @@ import {
   IonContent,
   IonHeader,
   IonInput,
+  IonSpinner,
   IonText,
   IonToolbar,
   IonToast,
@@ -27,6 +29,7 @@ import { PasswordInputComponent } from '../../shared/password-input.component';
     IonBackButton,
     IonContent,
     IonInput,
+    IonSpinner,
     IonButton,
     IonText,
     IonToast,
@@ -51,27 +54,25 @@ import { PasswordInputComponent } from '../../shared/password-input.component';
             formControlName="email"
           /><ion-text color="danger" *ngIf="form.controls.email.touched && form.controls.email.invalid"
             >Enter a valid email.</ion-text
-          ><app-password-input formControlName="password" /><ion-text
+          ><app-password-input formControlName="password" autocomplete="current-password" /><ion-text
             color="danger"
             *ngIf="form.controls.password.touched && form.controls.password.invalid"
             >Password must be at least 6 characters.</ion-text
           >
           <div class="form-link"><a routerLink="/auth/forgot">Forgot password?</a></div>
-          <ion-button expand="block" size="large" type="submit" [disabled]="form.invalid || busy()">{{
-            busy() ? 'Signing in…' : 'Sign in'
-          }}</ion-button>
+          <ion-button expand="block" size="large" type="submit" [disabled]="form.invalid || busy()">
+            <ion-spinner *ngIf="busy()" slot="start" name="crescent" />
+            {{ busy() ? 'Signing in…' : 'Sign in' }}
+          </ion-button>
         </form>
         <p class="auth-switch">New to PMS? <a routerLink="/auth/register">Create an account</a></p>
-        <div class="demo-note">
-          <strong>Mock mode</strong>
-          <p>Use any valid email and a password of 6+ characters.</p>
-        </div>
       </div>
       <ion-toast
         [isOpen]="!!error()"
         [message]="error()"
         color="danger"
         [duration]="2500"
+        aria-live="assertive"
         (didDismiss)="error.set('')"
     /></ion-content>`,
 })
@@ -79,8 +80,8 @@ export class LoginPage {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly form = this.fb.nonNullable.group({
-    email: ['maria@pmsrentals.ph', [Validators.required, Validators.email]],
-    password: ['demo123', [Validators.required, Validators.minLength(6)]],
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required, Validators.minLength(6)]],
   });
   constructor(
     private readonly fb: FormBuilder,
@@ -91,15 +92,17 @@ export class LoginPage {
   submit(): void {
     if (this.form.invalid) return;
     this.busy.set(true);
-    this.auth.login(this.form.getRawValue()).subscribe({
-      next: () =>
-        void this.router.navigateByUrl(this.route.snapshot.queryParamMap.get('returnUrl') || '/tabs/home', {
-          replaceUrl: true,
-        }),
-      error: (e) => {
-        this.error.set(e instanceof Error ? e.message : 'Unable to sign in.');
-        this.busy.set(false);
-      },
-    });
+    this.auth
+      .login(this.form.getRawValue())
+      .pipe(finalize(() => this.busy.set(false)))
+      .subscribe({
+        next: () =>
+          void this.router.navigateByUrl(this.route.snapshot.queryParamMap.get('returnUrl') || '/tabs/home', {
+            replaceUrl: true,
+          }),
+        error: (e) => {
+          this.error.set(e instanceof Error ? e.message : 'Unable to sign in.');
+        },
+      });
   }
 }

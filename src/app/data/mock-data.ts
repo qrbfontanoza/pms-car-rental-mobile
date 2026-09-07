@@ -5,7 +5,7 @@ export const MOCK_USER: CustomerProfile = {
   fullName: 'Maria Santos',
   email: 'maria@pmsrentals.ph',
   phone: '0917 555 0188',
-  profileImage: 'assets/avatar.png',
+  profileImage: 'assets/profile-placeholder.svg',
   licenseStatus: 'verified',
   notifications: { bookingUpdates: true, promotions: false, reminders: true },
 };

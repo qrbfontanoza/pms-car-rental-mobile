@@ -17,6 +17,28 @@
   --pms-success: #16834b;
   --pms-danger: #c52727;
   --pms-shadow: 0 10px 30px rgba(15, 42, 77, 0.09);
+  --pms-space-1: 4px;
+  --pms-space-2: 8px;
+  --pms-space-3: 12px;
+  --pms-space-4: 16px;
+  --pms-space-5: 20px;
+  --pms-space-6: 24px;
+  --pms-space-8: 32px;
+  --pms-space-10: 40px;
+  --pms-space-12: 48px;
+  --pms-radius-sm: 10px;
+  --pms-radius-md: 14px;
+  --pms-radius-lg: 20px;
+  --pms-content: 1050px;
+  --pms-content-reading: 760px;
+  --pms-touch: 44px;
+  --pms-motion-fast: 150ms;
+  --pms-motion-base: 220ms;
+  --pms-ease: cubic-bezier(0.2, 0, 0, 1);
+  --ion-color-step-50: #f1f5f9;
+  --ion-color-step-150: #e2e8f0;
+  --ion-color-step-400: #94a3b8;
+  --ion-color-step-600: #64748b;
 }
 .ion-palette-dark {
   --ion-color-primary: #8fb8e8;
@@ -32,4 +54,8 @@
   --pms-success: #4ade80;
   --pms-danger: #f87171;
   --pms-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+  --ion-color-step-50: #1e293b;
+  --ion-color-step-150: #334155;
+  --ion-color-step-400: #94a3b8;
+  --ion-color-step-600: #cbd5e1;
 }

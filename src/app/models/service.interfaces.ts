@@ -16,7 +16,9 @@ import {
 } from './domain.models';
 export abstract class AuthService {
   abstract readonly user$: Observable<User | null>;
+  abstract readonly ready$: Observable<boolean>;
   abstract readonly isAuthenticated: boolean;
+  abstract restore(): Observable<User | null>;
   abstract login(value: AuthCredentials): Observable<User>;
   abstract register(value: Registration): Observable<User>;
   abstract logout(): Observable<void>;
@@ -36,7 +38,9 @@ export abstract class VehicleService {
 }
 export abstract class BookingService {
   abstract readonly bookings$: Observable<Booking[]>;
+  abstract clear(): void;
   abstract list(): Observable<Booking[]>;
+  abstract getById(id: string): Observable<Booking>;
   abstract preview(
     draft: Pick<BookingDraft, 'vehicleId' | 'pickupDate' | 'returnDate' | 'voucherCode'>,
   ): Observable<BookingPricePreview>;
@@ -61,8 +65,13 @@ export abstract class SupportService {
 export abstract class ReceiptService {
   abstract get(bookingId: string): Observable<Receipt>;
   abstract share(receipt: Receipt): Observable<void>;
-  abstract save(receipt: Receipt): Observable<void>;
+  abstract save(receipt: Receipt): Observable<string>;
 }
 export abstract class MediaService {
-  abstract pickImage(kind: 'profile' | 'license'): Observable<{ name: string; previewUrl: string } | null>;
+  abstract pickImage(
+    kind: 'profile' | 'license',
+  ): Observable<{ name: string; previewUrl: string; file?: File } | null>;
+  abstract uploadProfilePhoto(file: File): Observable<CustomerProfile>;
+  abstract uploadProfileLicense(file: File): Observable<CustomerProfile>;
+  abstract uploadLicense(bookingId: string, file: File): Observable<void>;
 }

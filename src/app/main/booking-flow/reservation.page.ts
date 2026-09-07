@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { catchError, finalize, map, of, switchMap } from 'rxjs';
 import {
   AlertController,
   IonBackButton,
@@ -12,6 +13,7 @@ import {
   IonIcon,
   IonInput,
   IonProgressBar,
+  IonSpinner,
   IonText,
   IonTitle,
   IonToolbar,
@@ -26,8 +28,10 @@ import {
   ProfileService,
   VehicleService,
 } from '../../models/service.interfaces';
-import { PriceBreakdownComponent } from '../../shared/ui.components';
+import { EmptyStateComponent, PriceBreakdownComponent } from '../../shared/ui.components';
 import { dateRangeValidator, isoToday, peso } from '../../utils/app.utils';
+import { ImageFallbackDirective } from '../../shared/image-fallback.directive';
+import { ScreenSkeletonComponent } from '../../shared/screen-skeleton.component';
 @Component({
   standalone: true,
   imports: [
@@ -40,12 +44,16 @@ import { dateRangeValidator, isoToday, peso } from '../../utils/app.utils';
     IonTitle,
     IonContent,
     IonProgressBar,
+    IonSpinner,
     IonInput,
     IonButton,
     IonIcon,
     IonText,
     IonToast,
     PriceBreakdownComponent,
+    ImageFallbackDirective,
+    EmptyStateComponent,
+    ScreenSkeletonComponent,
   ],
   template: `<ion-header class="ion-no-border"
       ><ion-toolbar
@@ -53,12 +61,21 @@ import { dateRangeValidator, isoToday, peso } from '../../utils/app.utils';
         ><ion-title>Reserve vehicle</ion-title></ion-toolbar
       ><ion-progress-bar [value]="step() / 4" /></ion-header
     ><ion-content
-      ><div class="booking-shell" *ngIf="vehicle() as v">
+      ><app-screen-skeleton *ngIf="vehicleLoading()" variant="booking" />
+      <app-empty-state
+        *ngIf="vehicleError()"
+        icon="alert-circle-outline"
+        title="Couldn’t start this reservation"
+        [message]="vehicleError()"
+      >
+        <ion-button fill="outline" (click)="loadVehicle()">Try again</ion-button>
+      </app-empty-state>
+      <div class="booking-shell" *ngIf="vehicle() as v">
         <p class="eyebrow">STEP {{ step() }} OF 4</p>
         <section *ngIf="step() === 1">
           <h1>Review your ride</h1>
           <div class="booking-vehicle">
-            <img [src]="v.image" [alt]="v.name" />
+            <img appImageFallback [src]="v.image" [alt]="v.name" width="480" height="270" />
             <div>
               <small>{{ v.category }}</small>
               <h2>{{ v.name }}</h2>
@@ -113,12 +130,17 @@ import { dateRangeValidator, isoToday, peso } from '../../utils/app.utils';
               <ion-input
                 label="Voucher code"
                 labelPlacement="stacked"
-                placeholder="e.g. BOOK50"
+                placeholder="Enter voucher code"
                 formControlName="voucherCode"
-              /><ion-button fill="outline" (click)="calculate()">Apply</ion-button>
+              /><ion-button fill="outline" [disabled]="calculating()" (click)="calculate()"
+                ><ion-spinner *ngIf="calculating()" slot="start" name="crescent" />{{
+                  calculating() ? 'Applying…' : 'Apply'
+                }}</ion-button
+              >
             </div>
-            <p class="hint">Try BOOK50 or RIDE300 in mock mode.</p>
+            <p class="hint">Enter an active PMS voucher code, if you have one.</p>
             <app-price-breakdown *ngIf="preview() as p" [preview]="p" />
+            <p class="secure-note">Payment is collected by PMS staff at pickup. No payment is recorded when you reserve.</p>
           </section>
           <section *ngIf="step() === 4">
             <h1>Review & confirm</h1>
@@ -145,9 +167,17 @@ import { dateRangeValidator, isoToday, peso } from '../../utils/app.utils';
         </form>
         <div class="wizard-actions">
           <ion-button fill="clear" *ngIf="step() > 1" (click)="back()">Back</ion-button
-          ><ion-button size="large" (click)="next()">{{
-            step() === 4 ? 'Confirm reservation' : 'Continue'
-          }}</ion-button>
+          ><ion-button size="large" (click)="next()" [disabled]="busy() || calculating()"
+            ><ion-spinner *ngIf="busy()" slot="start" name="crescent" />{{
+              busy()
+                ? 'Submitting…'
+                : calculating()
+                  ? 'Checking price…'
+                  : step() === 4
+                    ? 'Confirm reservation'
+                    : 'Continue'
+            }}</ion-button
+          >
         </div>
       </div>
       <ion-toast
@@ -164,7 +194,12 @@ export class ReservationPage implements OnInit {
   readonly vehicle = signal<Vehicle | null>(null);
   readonly preview = signal<BookingPricePreview | null>(null);
   readonly error = signal('');
+  readonly busy = signal(false);
+  readonly calculating = signal(false);
+  readonly vehicleLoading = signal(true);
+  readonly vehicleError = signal('');
   readonly licenseName = signal('');
+  readonly licenseFile = signal<File | null>(null);
   readonly profileName = signal('Customer');
   money = peso;
   readonly form = this.fb.nonNullable.group(
@@ -190,14 +225,36 @@ export class ReservationPage implements OnInit {
     addIcons({ checkmarkCircleOutline, documentAttachOutline });
   }
   ngOnInit(): void {
-    this.vehicles.getById(this.route.snapshot.paramMap.get('id') || '').subscribe((v) => this.vehicle.set(v));
+    this.loadVehicle();
     this.profile.get().subscribe((p) => {
       this.profileName.set(p.fullName);
       this.form.patchValue({ contactNumber: p.phone });
     });
   }
+  loadVehicle(): void {
+    this.vehicleLoading.set(true);
+    this.vehicleError.set('');
+    this.vehicles.getById(this.route.snapshot.paramMap.get('id') || '').subscribe({
+      next: (vehicle) => {
+        this.vehicle.set(vehicle);
+        this.vehicleLoading.set(false);
+      },
+      error: () => {
+        this.vehicle.set(null);
+        this.vehicleError.set('Check your connection and try again.');
+        this.vehicleLoading.set(false);
+      },
+    });
+  }
   pickLicense(): void {
-    this.media.pickImage('license').subscribe((v) => this.licenseName.set(v?.name || ''));
+    this.media.pickImage('license').subscribe({
+      next: (value) => {
+        this.licenseName.set(value?.name || '');
+        this.licenseFile.set(value?.file ?? null);
+      },
+      error: (error: unknown) =>
+        this.error.set(error instanceof Error ? error.message : 'Could not select this image.'),
+    });
   }
   back(): void {
     this.step.update((v) => Math.max(1, v - 1));
@@ -221,7 +278,8 @@ export class ReservationPage implements OnInit {
   }
   calculate(done?: () => void): void {
     const v = this.vehicle();
-    if (!v) return;
+    if (!v || this.calculating()) return;
+    this.calculating.set(true);
     this.bookings
       .preview({
         vehicleId: v.id,
@@ -233,14 +291,18 @@ export class ReservationPage implements OnInit {
         next: (p) => {
           this.preview.set(p);
           done?.();
+          this.calculating.set(false);
         },
-        error: (e) => this.error.set(e instanceof Error ? e.message : 'Could not calculate price.'),
+        error: (e) => {
+          this.error.set(e instanceof Error ? e.message : 'Could not calculate price.');
+          this.calculating.set(false);
+        },
       });
   }
   private async confirm(): Promise<void> {
     const alert = await this.alerts.create({
       header: 'Confirm reservation?',
-      message: 'This creates a pending mock booking. Payment is due at pickup.',
+      message: 'This creates a pending booking. Payment will be collected by PMS staff at pickup.',
       buttons: [
         { text: 'Not yet', role: 'cancel' },
         { text: 'Confirm', role: 'confirm' },
@@ -251,6 +313,7 @@ export class ReservationPage implements OnInit {
     if (result.role !== 'confirm') return;
     const v = this.vehicle();
     if (!v) return;
+    this.busy.set(true);
     this.bookings
       .create({
         vehicleId: v.id,
@@ -261,9 +324,24 @@ export class ReservationPage implements OnInit {
         voucherCode: this.form.controls.voucherCode.value || undefined,
         licenseFileName: this.licenseName() || undefined,
       })
+      .pipe(
+        switchMap((booking) => {
+          const file = this.licenseFile();
+          return file
+            ? this.media.uploadLicense(booking.id, file).pipe(
+                map(() => ({ booking, licenseUploadFailed: false })),
+                catchError(() => of({ booking, licenseUploadFailed: true })),
+              )
+            : of({ booking, licenseUploadFailed: false });
+        }),
+        finalize(() => this.busy.set(false)),
+      )
       .subscribe({
-        next: (b) =>
-          void this.router.navigate(['/booking', b.id], { queryParams: { created: true }, replaceUrl: true }),
+        next: ({ booking, licenseUploadFailed }) =>
+          void this.router.navigate(['/booking', booking.id], {
+            queryParams: { created: true, licenseUploadFailed: licenseUploadFailed || null },
+            replaceUrl: true,
+          }),
         error: (e) => this.error.set(e instanceof Error ? e.message : 'Booking failed.'),
       });
   }

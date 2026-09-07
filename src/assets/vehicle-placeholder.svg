@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-labelledby="title description">
+  <title id="title">Vehicle image unavailable</title>
+  <desc id="description">PMS Car Rental placeholder showing a simple vehicle outline.</desc>
+  <rect width="800" height="450" fill="#e8eef7"/>
+  <g fill="none" stroke="#2159c7" stroke-linecap="round" stroke-linejoin="round" stroke-width="18">
+    <path d="M188 292h424l-35-102c-8-24-31-40-56-40H298c-25 0-48 16-56 40l-54 102Z"/>
+    <path d="M157 292h486v58H157z"/>
+    <circle cx="256" cy="350" r="39" fill="#f8fafc"/>
+    <circle cx="544" cy="350" r="39" fill="#f8fafc"/>
+    <path d="M284 150 249 292m267-142 35 142M344 150v142m112-142v142"/>
+  </g>
+</svg>
