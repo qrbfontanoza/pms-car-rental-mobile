@@ -2,6 +2,12 @@
 
 A native-style Ionic + Angular customer application recreated from the supplied PMS website and assets. It uses standalone components, strict TypeScript, reactive forms, lazy routes, Ionic navigation, signals, and a replaceable service layer. Production builds use the secured Azure HTTPS API; the app never connects directly to MySQL and does not embed the website as application content.
 
+## Download the Android app
+
+[**Download PMS Car Rental APK**](https://github.com/qrbfontanoza/pms-car-rental-mobile/releases/download/v1.0.0-checking.1/PMS-Car-Rental-v1.0.0-checking.apk)
+
+This school-checking build can be installed directly on an Android phone. No development commands are required. Android may ask you to allow installation from your browser or file manager.
+
 ## Included experience
 
 - Branded splash and persistent, skippable onboarding
